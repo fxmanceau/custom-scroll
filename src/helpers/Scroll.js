@@ -1,15 +1,18 @@
-import VirtualScroll from "virtual-scroll"
-import { lerp } from './utils/maths'
+import VirtualScroll from 'virtual-scroll'
+import {lerp} from './utils/maths'
 
 export default class Smooth {
     constructor(options = {}) {
         this.options = options
 
-        this.windowSize = { width: window.innerWidth, height: window.innerHeight }
-        this.containerSize = { width: this.options.el.offsetWidth, height: this.options.offsetHeight }
+        this.windowSize = {width: window.innerWidth, height: window.innerHeight}
+        this.containerSize = {
+            width: this.options.el.offsetWidth,
+            height: this.options.offsetHeight
+        }
 
-        this.scrollPosition = { x: 0, y: 0 }
-        this.lerpedScrollPosition = { x: 0, y: 0 }
+        this.scrollPosition = {x: 0, y: 0}
+        this.lerpedScrollPosition = {x: 0, y: 0}
 
         this.sections = []
 
@@ -17,9 +20,11 @@ export default class Smooth {
 
         this.isRaf = false
         this.isScrolling = false
+        this.isReseting = false
 
         this.executeRaf = this.executeRaf.bind(this)
         this.updateScrollPosition = this.updateScrollPosition.bind(this)
+        this.updateLoopScrollPosition = this.updateLoopScrollPosition.bind(this)
 
         this.init()
     }
@@ -34,7 +39,7 @@ export default class Smooth {
             keyStep: this.options.keyStep,
             useTouch: this.options.useTouch
         })
-        this.vs.on(this.updateScrollPosition)
+        this.vs.on(this.options.loop === true ? this.updateLoopScrollPosition : this.updateScrollPosition)
 
         this.addSections()
         this.addParallaxElements()
@@ -61,36 +66,70 @@ export default class Smooth {
         }
 
         if (this.options.direction === 'vertical') {
-            if (this.scrollPosition.y + e.deltaY > 0 ||
-                this.containerSize.height <= this.windowSize.height) {
+            if (this.scrollPosition.y + e.deltaY > 0 || this.containerSize.height <= this.windowSize.height) {
                 this.scrollPosition.y = 0
-            }
-            else if ((this.containerSize.height <= this.windowSize.height) && (this.scrollPosition.y + e.deltaY < this.containerSize.height)) {
+            } else if (this.containerSize.height <= this.windowSize.height && this.scrollPosition.y + e.deltaY < this.containerSize.height) {
                 this.scrollPosition.y = -this.containerSize.height
-            }
-            else if (this.scrollPosition.y + e.deltaY < -(this.containerSize.height - this.windowSize.height)) {
+            } else if (this.scrollPosition.y + e.deltaY < -(this.containerSize.height - this.windowSize.height)) {
                 this.scrollPosition.y = -(this.containerSize.height - this.windowSize.height)
-            }
-            else {
+            } else {
                 this.scrollPosition.y += e.deltaY
             }
-        }
-        else if (this.options.direction === 'horizontal') {
-            if (this.scrollPosition.x + e.deltaX > 0 ||
-                this.scrollPosition.x + e.deltaY > 0 ||
-                this.containerSize.width <= this.windowSize.width) {
+        } else if (this.options.direction === 'horizontal') {
+            if (this.scrollPosition.x + e.deltaX > 0 || this.scrollPosition.x + e.deltaY > 0 || this.containerSize.width <= this.windowSize.width) {
                 this.scrollPosition.x = 0
-            }
-            else if ((this.containerSize.width <= this.windowSize.width) &&
-                ((this.scrollPosition.x + e.deltaX < this.containerSize.width) ||
-                    (this.scrollPosition.x + e.deltaY < this.containerSize.width))) {
+            } else if (
+                this.containerSize.width <= this.windowSize.width &&
+                (this.scrollPosition.x + e.deltaX < this.containerSize.width || this.scrollPosition.x + e.deltaY < this.containerSize.width)
+            ) {
                 this.scrollPosition.x = -this.containerSize.width
-            }
-            else if (this.scrollPosition.x + e.deltaX < -(this.containerSize.width - this.windowSize.width) ||
-                this.scrollPosition.x + e.deltaY < -(this.containerSize.width - this.windowSize.width)) {
+            } else if (
+                this.scrollPosition.x + e.deltaX < -(this.containerSize.width - this.windowSize.width) ||
+                this.scrollPosition.x + e.deltaY < -(this.containerSize.width - this.windowSize.width)
+            ) {
                 this.scrollPosition.x = -(this.containerSize.width - this.windowSize.width)
+            } else {
+                this.scrollPosition.x += e.deltaX + e.deltaY
             }
-            else {
+        }
+    }
+
+    updateLoopScrollPosition(e) {
+        this.isScrolling = true
+
+        if (this.isRaf === false) {
+            this.raf = requestAnimationFrame(this.executeRaf)
+        }
+
+        if (this.options.direction === 'vertical') {
+            if (this.scrollPosition.y + e.deltaY > this.windowSize.height - this.sections[0].bounding.height - this.sections[0].bounding.top || this.containerSize.height <= this.windowSize.height) {
+                this.scrollPosition.y = -this.containerSize.height + this.windowSize.height - this.sections[0].bounding.height
+
+                this.lerpedScrollPosition.y = this.scrollPosition.y
+            } else if (this.scrollPosition.y + e.deltaY < -(this.containerSize.height - this.windowSize.height + this.sections[0].bounding.height)) {
+                this.scrollPosition.y = this.windowSize.height - this.sections[0].bounding.height - this.sections[0].bounding.top
+
+                this.lerpedScrollPosition.y = this.scrollPosition.y
+            } else {
+                this.scrollPosition.y += e.deltaY
+            }
+        } else if (this.options.direction === 'horizontal') {
+            if (
+                this.scrollPosition.x + e.deltaX > this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left ||
+                this.scrollPosition.x + e.deltaY > this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left ||
+                this.containerSize.width <= this.windowSize.width
+            ) {
+                this.scrollPosition.x = -this.containerSize.width + this.windowSize.width - this.sections[0].bounding.width
+
+                this.lerpedScrollPosition.x = this.scrollPosition.x
+            } else if (
+                this.scrollPosition.x + e.deltaX < -(this.containerSize.width - this.windowSize.width + this.sections[0].bounding.width) ||
+                this.scrollPosition.x + e.deltaY < -(this.containerSize.width - this.windowSize.width + this.sections[0].bounding.width)
+            ) {
+                this.scrollPosition.x = this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left
+
+                this.lerpedScrollPosition.x = this.scrollPosition.x
+            } else {
                 this.scrollPosition.x += e.deltaX + e.deltaY
             }
         }
@@ -100,7 +139,6 @@ export default class Smooth {
         if (!delay) {
             this.transform(el, x, y)
         } else {
-
             const computedLerp = {
                 x: Math.round(lerp(this.lerpedScrollPosition.x, x, delay) * 1000) / 1000,
                 y: Math.round(lerp(this.lerpedScrollPosition.y, y, delay) * 1000) / 1000
@@ -126,7 +164,6 @@ export default class Smooth {
         el.style.transform = transformValue
     }
 
-
     executeRaf() {
         if (this.isScrolling === true) {
             this.isRaf = true
@@ -134,8 +171,7 @@ export default class Smooth {
 
             if (this.sections.length === 0) {
                 this.updateContainer(this.options.el, this.scrollPosition.x, this.scrollPosition.y, this.options.lerp)
-            }
-            else {
+            } else {
                 this.updateSection(this.scrollPosition.x, this.scrollPosition.y, this.options.lerp)
             }
 
@@ -173,8 +209,11 @@ export default class Smooth {
                 direction: el.dataset.speed ? el.dataset.direction : 'vertical',
                 parent: el.parentNode,
                 parentBounding: parentBounding,
-                offset: { x: elementBounding.width - parentBounding.width, y: elementBounding.height - parentBounding.height },
-                progress: { x: 0, y: 0 }
+                offset: {
+                    x: elementBounding.width - parentBounding.width,
+                    y: elementBounding.height - parentBounding.height
+                },
+                progress: {x: 0, y: 0}
             }
             this.parallaxElements.push(elementContext)
         })
@@ -186,13 +225,12 @@ export default class Smooth {
             const elementContext = {
                 el: el,
                 bounding: elementBounding,
-                progress: { x: 0, y: 0 },
-                offset: { x: 0, y: 0 },
+                progress: {x: 0, y: 0},
+                offset: {x: 0, y: 0},
                 active: true
             }
             this.sections.push(elementContext)
         })
-
     }
 
     updateSection(x, y, delay) {
@@ -200,10 +238,9 @@ export default class Smooth {
             if (!delay) {
                 this.transform(item.el, x, y)
             } else {
-
                 const computedLerp = {
-                    x: Math.round(lerp(this.lerpedScrollPosition.x, x, delay) * 1000) / 1000,
-                    y: Math.round(lerp(this.lerpedScrollPosition.y, y, delay) * 1000) / 1000
+                    x: Math.round(lerp(this.lerpedScrollPosition.x, x, this.options.lerp) * 1000) / 1000,
+                    y: Math.round(lerp(this.lerpedScrollPosition.y, y, this.options.lerp) * 1000) / 1000
                 }
 
                 if (computedLerp.x === this.lerpedScrollPosition.x && computedLerp.y === this.lerpedScrollPosition.y) {
@@ -214,35 +251,64 @@ export default class Smooth {
                 this.lerpedScrollPosition.x = computedLerp.x
                 this.lerpedScrollPosition.y = computedLerp.y
 
-                if ((this.lerpedScrollPosition.x + item.bounding.right >= -this.windowSize.height / 2 &&
-                    item.bounding.left + this.lerpedScrollPosition.x <= this.windowSize.width + this.windowSize.width / 2) &&
-                    this.options.direction === 'horizontal') {
+                console.log(this.isRaf)
 
-                    item.active = true
-                    this.transform(item.el, this.lerpedScrollPosition.x, this.lerpedScrollPosition.y, delay)
+                if (this.options.direction === 'horizontal') {
+                    if (
+                        this.lerpedScrollPosition.x + item.bounding.right >= -this.windowSize.height / 2 &&
+                        item.bounding.left + this.lerpedScrollPosition.x <= this.windowSize.width + this.windowSize.width / 2
+                    ) {
+                        item.active = true
+                        item.offset.x = 0
+
+                        this.transform(item.el, this.lerpedScrollPosition.x, this.lerpedScrollPosition.y, delay)
+                    } else if (
+                        item.bounding.left + this.lerpedScrollPosition.x <= this.windowSize.width + this.windowSize.width / 2 &&
+                        (i === 0 || i === this.sections.length - 1) &&
+                        this.options.loop === true
+                    ) {
+                        item.offset.x = this.containerSize.width - item.bounding.left
+
+                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                    } else if ((this.lerpedScrollPosition.x + item.bounding.right >= -this.windowSize.width / 2) & (i === 0 || i === this.sections.length - 1) && this.options.loop === true) {
+                        item.offset.x = -item.bounding.right
+
+                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                    }
+                } else if (this.options.direction === 'vertical') {
+                    if (
+                        this.lerpedScrollPosition.y + item.bounding.bottom >= -this.windowSize.height / 2 &&
+                        item.bounding.top + this.lerpedScrollPosition.y <= this.windowSize.height + this.windowSize.height / 2
+                    ) {
+                        this.transform(item.el, this.lerpedScrollPosition.x, this.lerpedScrollPosition.y, delay)
+                    } else if (
+                        item.bounding.top + this.lerpedScrollPosition.y <= this.windowSize.height + this.windowSize.height / 2 &&
+                        (i === 0 || i === this.sections.length - 1) &&
+                        this.options.loop === true
+                    ) {
+                        item.offset.y = this.containerSize.height - item.bounding.top
+
+                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                    } else if ((this.lerpedScrollPosition.y + item.bounding.bottom >= -this.windowSize.height / 2) & (i === 0 || i === this.sections.length - 1) && this.options.loop === true) {
+                        item.offset.y = -item.bounding.bottom
+
+                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                    }
                 }
-                else if ((this.lerpedScrollPosition.y + item.bounding.bottom >= -this.windowSize.height / 2 &&
-                    item.bounding.top + this.lerpedScrollPosition.y <= this.windowSize.height + this.windowSize.height / 2) &&
-                    this.options.direction === 'vertical') {
-
-
-                    this.transform(item.el, this.lerpedScrollPosition.x, this.lerpedScrollPosition.y, delay)
-                }
-
             }
         })
     }
 
     updateParallax() {
         this.parallaxElements.forEach(item => {
-            item.progress.x = ((item.parentBounding.left + item.parentBounding.width / 2) + this.lerpedScrollPosition.x - this.windowSize.width / 2) / (this.windowSize.width * 0.75)
-            item.progress.y = ((item.parentBounding.top + item.parentBounding.height / 2) + this.lerpedScrollPosition.y - this.windowSize.height / 2) / (this.windowSize.height * 0.75)
+            item.progress.x = (item.parentBounding.left + item.parentBounding.width / 2 + this.lerpedScrollPosition.x - this.windowSize.width / 2) / (this.windowSize.width * 0.75)
+            item.progress.y = (item.parentBounding.top + item.parentBounding.height / 2 + this.lerpedScrollPosition.y - this.windowSize.height / 2) / (this.windowSize.height * 0.75)
 
             item.progress.x = Math.min(Math.max(item.progress.x * item.speed, -1), 1)
             item.progress.y = Math.min(Math.max(item.progress.y * item.speed, -1), 1)
 
-            if ((item.progress.x > -1 && item.progress.x < 1) && (item.progress.y > -1 && item.progress.y < 1)) {
-                this.transform(item.el, item.offset.x / 2 * item.progress.x, item.offset.y / 2 * item.progress.y)
+            if (item.progress.x > -1 && item.progress.x < 1 && item.progress.y > -1 && item.progress.y < 1) {
+                this.transform(item.el, (item.offset.x / 2) * item.progress.x, (item.offset.y / 2) * item.progress.y)
             }
         })
     }
