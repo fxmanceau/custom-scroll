@@ -115,16 +115,18 @@ export default class Smooth {
             }
         } else if (this.options.direction === 'horizontal') {
             if (
-                this.scrollPosition.x + e.deltaX > this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left ||
-                this.scrollPosition.x + e.deltaY > this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left ||
-                this.containerSize.width <= this.windowSize.width
+                (this.scrollPosition.x + e.deltaX > this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left ||
+                    this.scrollPosition.x + e.deltaY > this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left ||
+                    this.containerSize.width <= this.windowSize.width) &&
+                e.deltaX + e.deltaY > 0
             ) {
                 this.scrollPosition.x = -this.containerSize.width + this.windowSize.width - this.sections[0].bounding.width
 
                 this.lerpedScrollPosition.x = this.scrollPosition.x
             } else if (
-                this.scrollPosition.x + e.deltaX < -(this.containerSize.width - this.windowSize.width + this.sections[0].bounding.width) ||
-                this.scrollPosition.x + e.deltaY < -(this.containerSize.width - this.windowSize.width + this.sections[0].bounding.width)
+                (this.scrollPosition.x + e.deltaX < -(this.containerSize.width - this.windowSize.width + this.sections[0].bounding.width) ||
+                    this.scrollPosition.x + e.deltaY < -(this.containerSize.width - this.windowSize.width + this.sections[0].bounding.width)) &&
+                e.deltaX + e.deltaY < 0
             ) {
                 this.scrollPosition.x = this.windowSize.width - this.sections[0].bounding.width - this.sections[0].bounding.left
 
@@ -251,8 +253,6 @@ export default class Smooth {
                 this.lerpedScrollPosition.x = computedLerp.x
                 this.lerpedScrollPosition.y = computedLerp.y
 
-                console.log(this.isRaf)
-
                 if (this.options.direction === 'horizontal') {
                     if (
                         this.lerpedScrollPosition.x + item.bounding.right >= -this.windowSize.height / 2 &&
@@ -261,7 +261,7 @@ export default class Smooth {
                         item.active = true
                         item.offset.x = 0
 
-                        this.transform(item.el, this.lerpedScrollPosition.x, this.lerpedScrollPosition.y, delay)
+                        this.transform(item.el, this.lerpedScrollPosition.x, 0)
                     } else if (
                         item.bounding.left + this.lerpedScrollPosition.x <= this.windowSize.width + this.windowSize.width / 2 &&
                         (i === 0 || i === this.sections.length - 1) &&
@@ -269,18 +269,20 @@ export default class Smooth {
                     ) {
                         item.offset.x = this.containerSize.width - item.bounding.left
 
-                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, 0)
                     } else if ((this.lerpedScrollPosition.x + item.bounding.right >= -this.windowSize.width / 2) & (i === 0 || i === this.sections.length - 1) && this.options.loop === true) {
                         item.offset.x = -item.bounding.right
 
-                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, 0)
+                    } else {
+                        this.transform(item.el, this.windowSize.width, 0)
                     }
                 } else if (this.options.direction === 'vertical') {
                     if (
                         this.lerpedScrollPosition.y + item.bounding.bottom >= -this.windowSize.height / 2 &&
                         item.bounding.top + this.lerpedScrollPosition.y <= this.windowSize.height + this.windowSize.height / 2
                     ) {
-                        this.transform(item.el, this.lerpedScrollPosition.x, this.lerpedScrollPosition.y, delay)
+                        this.transform(item.el, 0, this.lerpedScrollPosition.y, delay)
                     } else if (
                         item.bounding.top + this.lerpedScrollPosition.y <= this.windowSize.height + this.windowSize.height / 2 &&
                         (i === 0 || i === this.sections.length - 1) &&
@@ -288,11 +290,13 @@ export default class Smooth {
                     ) {
                         item.offset.y = this.containerSize.height - item.bounding.top
 
-                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                        this.transform(item.el, 0, this.lerpedScrollPosition.y + item.offset.y)
                     } else if ((this.lerpedScrollPosition.y + item.bounding.bottom >= -this.windowSize.height / 2) & (i === 0 || i === this.sections.length - 1) && this.options.loop === true) {
                         item.offset.y = -item.bounding.bottom
 
-                        this.transform(item.el, this.lerpedScrollPosition.x + item.offset.x, this.lerpedScrollPosition.y + item.offset.y)
+                        this.transform(item.el, 0, this.lerpedScrollPosition.y + item.offset.y)
+                    } else {
+                        this.transform(item.el, this.windowSize.width, this.windowSize.height)
                     }
                 }
             }
